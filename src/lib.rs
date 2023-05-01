@@ -81,7 +81,25 @@ impl DivinationCardsSample {
         }
     }
 
-    const CONDENSE_FACTOR: f32 = 2.0 / 3.0;
+    pub fn size(&self) -> i32 {
+        self.cards.iter().map(|r| r.amount).sum()
+    }
+
+    pub fn weight(&mut self) -> &mut Self {
+        let sample_size = self.size();
+        let rain_of_chaos = self
+            .cards
+            .iter()
+            .find(|r| r.name == "Rain of Chaos")
+            .expect("no rain of chaos card");
+        let sample_weight = RAIN_OF_CHAOS_WEIGHT / rain_of_chaos.local_weight(sample_size);
+
+        for card in &mut self.cards {
+            card.weight(sample_weight, sample_size);
+        }
+
+        self
+    }
 
     pub fn price(&mut self, prices: [DivinationCardPrice; CARDS_N]) -> &mut Self {
         for card in &mut self.cards {
@@ -208,6 +226,16 @@ impl DivinationCardRecord {
         }
     }
 
+    pub fn local_weight(&self, sample_size: i32) -> f32 {
+        self.amount as f32 / sample_size as f32
+    }
+
+    pub fn weight(&mut self, weight_sample: f32, sample_size: i32) -> &mut Self {
+        self.weight =
+            Some((weight_sample * self.local_weight(sample_size)).powf(1.0 / CONDENSE_FACTOR));
+        self
+    }
+
     fn most_similar_card(name: &str) -> (String, f64) {
         let mut similarity_map = HashMap::<String, f64>::new();
         for card in CARDS {
@@ -324,6 +352,9 @@ mod tests {
         // dbg!(prices);
     }
 }
+
+pub const CONDENSE_FACTOR: f32 = 2.0 / 3.0;
+pub const RAIN_OF_CHAOS_WEIGHT: f32 = 2452.65513;
 
 pub const LEGACY_CARDS: [&'static str; 12] = [
     "Friendship",

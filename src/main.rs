@@ -11,10 +11,10 @@ use serde::{Deserialize, Serialize};
 
 #[tokio::main]
 async fn main() {
-    let s = std::fs::read_to_string("example-2.csv").unwrap();
+    let s = std::fs::read_to_string("example-3.csv").unwrap();
     let prices = DivinationCardPrice::fetch().await.unwrap();
     let mut sample = DivinationCardsSample::from_prices(prices);
-    sample.csv(Csv::CsvString(CsvString(s))).polished();
+    sample.csv(Csv::CsvString(CsvString(s))).weight().polished();
 
     dbg!(sample);
 }
