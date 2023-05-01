@@ -85,14 +85,18 @@ impl DivinationCardsSample {
         self.cards.iter().map(|r| r.amount).sum()
     }
 
-    pub fn weight(&mut self) -> &mut Self {
-        let sample_size = self.size();
+    pub fn sample_weight(&self) -> f32 {
         let rain_of_chaos = self
             .cards
             .iter()
             .find(|r| r.name == "Rain of Chaos")
             .expect("no rain of chaos card");
-        let sample_weight = RAIN_OF_CHAOS_WEIGHT / rain_of_chaos.local_weight(sample_size);
+        RAIN_OF_CHAOS_WEIGHT / rain_of_chaos.local_weight(self.size())
+    }
+
+    pub fn weight(&mut self) -> &mut Self {
+        let sample_size = self.size();
+        let sample_weight = self.sample_weight();
 
         for card in &mut self.cards {
             card.weight(sample_weight, sample_size);
