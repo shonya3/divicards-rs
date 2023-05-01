@@ -1,10 +1,11 @@
 #![allow(unused)]
 pub mod error;
 
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, time::Instant};
 
 use csv::{Reader, WriterBuilder};
 use serde::{Deserialize, Serialize};
+use serde_big_array::BigArray;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -22,18 +23,44 @@ pub struct DivinationCardPrice {
 }
 
 impl DivinationCardPrice {
-    pub async fn actual() -> Result<String, reqwest::Error> {
+    pub async fn fetch() -> Result<[Self; CARDS_N], reqwest::Error> {
+        #[derive(Deserialize, Debug, Serialize)]
+        struct PriceData {
+            lines: Vec<DivinationCardPrice>,
+        }
+
         let client = reqwest::Client::new();
         let url =
         "https://poe.ninja/api/data/itemoverview?league=Crucible&type=DivinationCard&language=en";
         let json = client.get(url).send().await?.text().await?;
-        Ok(json)
+
+        let price_data: PriceData = serde_json::from_str(&json).unwrap();
+        let prices = price_data.lines;
+
+        let prices_arr: [DivinationCardPrice; CARDS_N] = CARDS
+            .into_iter()
+            .map(|card| {
+                let price = prices
+                    .iter()
+                    .find(|div_card_price| div_card_price.name == card)
+                    .and_then(|v| v.price);
+                DivinationCardPrice {
+                    name: card.to_string(),
+                    price,
+                }
+            })
+            .collect::<Vec<Self>>()
+            .try_into()
+            .unwrap();
+
+        Ok(prices_arr)
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DivinationCardsSample {
-    pub cards: HashMap<String, DivinationCardRecord>,
+    #[serde(with = "BigArray")]
+    pub cards: [DivinationCardRecord; CARDS_N],
     pub not_cards: Vec<String>,
     pub fixed_names: Vec<FixedCardName>,
     pub polished: CsvString,
@@ -41,7 +68,7 @@ pub struct DivinationCardsSample {
 
 impl DivinationCardsSample {
     pub fn new(
-        cards: HashMap<String, DivinationCardRecord>,
+        cards: [DivinationCardRecord; 438],
         not_cards: Vec<String>,
         fixed_names: Vec<FixedCardName>,
         polished: CsvString,
@@ -56,22 +83,47 @@ impl DivinationCardsSample {
 
     const CONDENSE_FACTOR: f32 = 2.0 / 3.0;
 
-    pub fn price(&mut self, prices: Vec<DivinationCardPrice>) -> &mut Self {
-        for DivinationCardPrice { name, price } in prices {
-            self.cards.get_mut(&name).unwrap().price = price;
+    pub fn price(&mut self, prices: [DivinationCardPrice; CARDS_N]) -> &mut Self {
+        for card in &mut self.cards {
+            let price = prices
+                .iter()
+                .find(|div_card_price| div_card_price.name == card.name)
+                .and_then(|v| v.price);
+            card.price = price;
         }
         self
     }
 
     pub fn polished(&mut self) -> &mut Self {
         let mut writer = csv::Writer::from_writer(vec![]);
-        for card in self.cards.values() {
+        for card in self.cards.clone() {
             writer.serialize(card).unwrap();
         }
         let s = String::from_utf8(writer.into_inner().expect("Error with csv serialize"))
             .expect("Error");
         self.polished = CsvString(s);
         self
+    }
+
+    pub fn from_prices(prices: [DivinationCardPrice; CARDS_N]) -> Self {
+        let cards: [DivinationCardRecord; CARDS_N] = prices
+            .into_iter()
+            .map(|DivinationCardPrice { name, price }| DivinationCardRecord {
+                name,
+                price,
+                amount: Default::default(),
+                weight: Default::default(),
+            })
+            .collect::<Vec<DivinationCardRecord>>()
+            .try_into()
+            .unwrap();
+
+        DivinationCardsSample {
+            cards,
+            not_cards: Default::default(),
+            fixed_names: Default::default(),
+            polished: CsvString(String::from("")),
+        }
     }
 
     pub fn csv(&mut self, csv: Csv) -> &mut Self {
@@ -82,12 +134,23 @@ impl DivinationCardsSample {
                     if let Ok(mut record) = result {
                         match &record.is_card() {
                             true => {
-                                self.cards.get_mut(&record.name).unwrap().amount = record.amount
+                                // self.cards.get_mut(&record.name).unwrap().amount = record.amount
+                                // self.cards.get_mut(index)
+                                let mut card = self
+                                    .cards
+                                    .iter_mut()
+                                    .find(|card| card.name == record.name)
+                                    .unwrap();
+                                card.amount = record.amount;
                             }
                             false => match record.fix_name() {
                                 Some(fixed) => {
-                                    self.cards.get_mut(&record.name).unwrap().amount =
-                                        record.amount;
+                                    let mut card = self
+                                        .cards
+                                        .iter_mut()
+                                        .find(|card| card.name == record.name)
+                                        .unwrap();
+                                    card.amount = record.amount;
                                     self.fixed_names.push(fixed);
                                 }
                                 None => self.not_cards.push(record.name),
@@ -103,14 +166,21 @@ impl DivinationCardsSample {
 
 impl Default for DivinationCardsSample {
     fn default() -> Self {
-        let mut map = HashMap::new();
-        for card in CARDS {
-            let record = DivinationCardRecord::new(card, None, None);
-            map.insert(String::from(card), record);
-        }
+        let cards: [DivinationCardRecord; 438] = CARDS
+            .clone()
+            .into_iter()
+            .map(|card| DivinationCardRecord {
+                name: card.to_string(),
+                price: Default::default(),
+                amount: Default::default(),
+                weight: Default::default(),
+            })
+            .collect::<Vec<DivinationCardRecord>>()
+            .try_into()
+            .unwrap();
 
         DivinationCardsSample {
-            cards: map,
+            cards,
             fixed_names: vec![],
             not_cards: vec![],
             polished: CsvString(String::from("")),
@@ -151,10 +221,6 @@ impl DivinationCardRecord {
             .unwrap();
 
         (most_similar.0.to_owned(), most_similar.1.to_owned())
-    }
-
-    pub fn analyze() -> IsACard {
-        todo!()
     }
 
     pub fn fix_name(&mut self) -> Option<FixedCardName> {
@@ -274,7 +340,9 @@ pub const LEGACY_CARDS: [&'static str; 12] = [
     "The Sustenance",
 ];
 
-pub const CARDS: [&'static str; 438] = [
+pub const CARDS_N: usize = 438;
+pub const LEGACY_CARDS_N: usize = 12;
+pub const CARDS: [&'static str; CARDS_N] = [
     "Brother's Gift",
     "Soul Quenched",
     "Poisoned Faith",
