@@ -22,6 +22,28 @@ pub struct DivinationCardPrice {
     pub price: Option<f32>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Prices(#[serde(with = "BigArray")] pub [DivinationCardPrice; CARDS_N]);
+impl Prices {
+    pub async fn fetch() -> Result<Prices, reqwest::Error> {
+        Ok(Prices(DivinationCardPrice::fetch().await?))
+    }
+}
+impl Default for Prices {
+    fn default() -> Self {
+        let prices: [DivinationCardPrice; CARDS_N] = CARDS
+            .into_iter()
+            .map(|name| DivinationCardPrice {
+                name: name.to_string(),
+                price: Default::default(),
+            })
+            .collect::<Vec<DivinationCardPrice>>()
+            .try_into()
+            .unwrap();
+        Prices(prices)
+    }
+}
+
 impl DivinationCardPrice {
     pub async fn fetch() -> Result<[Self; CARDS_N], reqwest::Error> {
         #[derive(Deserialize, Debug, Serialize)]
@@ -81,17 +103,14 @@ impl DivinationCardsSample {
         }
     }
 
-    pub fn create(csv: Csv, prices: [DivinationCardPrice; 438]) -> DivinationCardsSample {
+    pub fn create(csv: Csv, prices: Prices) -> DivinationCardsSample {
         let mut sample = DivinationCardsSample::default();
         sample.csv(csv).price(prices).weight().polished();
 
         sample
     }
 
-    pub fn merge(
-        prices: [DivinationCardPrice; 438],
-        samples: &[DivinationCardsSample],
-    ) -> DivinationCardsSample {
+    pub fn merge(prices: Prices, samples: &[DivinationCardsSample]) -> DivinationCardsSample {
         let mut merged = DivinationCardsSample::from_prices(prices);
 
         for name in CARDS {
@@ -142,9 +161,10 @@ impl DivinationCardsSample {
         self
     }
 
-    pub fn price(&mut self, prices: [DivinationCardPrice; CARDS_N]) -> &mut Self {
+    pub fn price(&mut self, prices: Prices) -> &mut Self {
         for card in &mut self.cards {
             let price = prices
+                .0
                 .iter()
                 .find(|div_card_price| div_card_price.name == card.name)
                 .and_then(|v| v.price);
@@ -164,8 +184,9 @@ impl DivinationCardsSample {
         self
     }
 
-    pub fn from_prices(prices: [DivinationCardPrice; CARDS_N]) -> Self {
+    pub fn from_prices(prices: Prices) -> Self {
         let cards: [DivinationCardRecord; CARDS_N] = prices
+            .0
             .into_iter()
             .map(|DivinationCardPrice { name, price }| DivinationCardRecord {
                 name,
@@ -393,19 +414,17 @@ mod tests {
         // dbg!(prices);
     }
 
-    #[tokio::test]
-    async fn merge() {
+    #[test]
+    fn merge() {
         let csv1 = std::fs::read_to_string("example-1.csv").unwrap();
         let csv2 = std::fs::read_to_string("example-2.csv").unwrap();
         let csv3 = std::fs::read_to_string("example-3.csv").unwrap();
 
-        let prices = DivinationCardPrice::fetch().await.unwrap();
+        let s1 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv1)), Prices::default());
+        let s2 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv2)), Prices::default());
+        let s3 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv3)), Prices::default());
 
-        let s1 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv1)), prices.clone());
-        let s2 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv2)), prices.clone());
-        let s3 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv3)), prices.clone());
-
-        let s = DivinationCardsSample::merge(prices, &[s1, s2, s3]);
+        let s = DivinationCardsSample::merge(Prices::default(), &[s1, s2, s3]);
         let rain_of_chaos = s
             .cards
             .iter()
