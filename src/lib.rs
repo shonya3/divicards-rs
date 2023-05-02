@@ -103,6 +103,18 @@ impl DivinationCardsSample {
         }
     }
 
+    pub fn chaos(&self, min: Option<f32>) -> f32 {
+        self.cards
+            .iter()
+            .map(
+                |card| match card.price.unwrap_or_default() >= min.unwrap_or_default() {
+                    true => card.price.unwrap_or_default() * card.amount as f32,
+                    false => 0.0,
+                },
+            )
+            .sum::<f32>()
+    }
+
     pub fn create(csv: Csv, prices: Prices) -> DivinationCardsSample {
         let mut sample = DivinationCardsSample::default();
         sample.csv(csv).price(prices).weight().polished();

@@ -22,11 +22,6 @@ async fn main() {
     let s3 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv3)), prices.clone());
 
     let s = DivinationCardsSample::merge(prices, &[s1, s2, s3]);
-    let rain_of_chaos = s
-        .cards
-        .iter()
-        .find(|card| card.name == "Rain of Chaos")
-        .unwrap();
-
-    dbg!(rain_of_chaos);
+    dbg!(s.chaos(None));
+    dbg!(s.chaos(Some(50.0)));
 }
