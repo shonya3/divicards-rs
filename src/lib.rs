@@ -1,7 +1,7 @@
 #![allow(unused)]
 pub mod error;
 
-use std::{collections::HashMap, path::Path, time::Instant};
+use std::{collections::HashMap, fmt::Display, path::Path, time::Instant};
 
 use csv::{Reader, WriterBuilder};
 use serde::{Deserialize, Serialize};
@@ -25,8 +25,8 @@ pub struct DivinationCardPrice {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Prices(#[serde(with = "BigArray")] pub [DivinationCardPrice; CARDS_N]);
 impl Prices {
-    pub async fn fetch() -> Result<Prices, reqwest::Error> {
-        Ok(Prices(DivinationCardPrice::fetch().await?))
+    pub async fn fetch(league: League) -> Result<Prices, reqwest::Error> {
+        Ok(Prices(DivinationCardPrice::fetch(league).await?))
     }
 }
 impl Default for Prices {
@@ -44,8 +44,23 @@ impl Default for Prices {
     }
 }
 
+#[derive(Debug)]
+pub enum League {
+    Crucible,
+    Standard,
+}
+
+impl Display for League {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            League::Crucible => write!(f, "Crucible"),
+            League::Standard => write!(f, "Standard"),
+        }
+    }
+}
+
 impl DivinationCardPrice {
-    pub async fn fetch() -> Result<[Self; CARDS_N], reqwest::Error> {
+    pub async fn fetch(league: League) -> Result<[Self; CARDS_N], reqwest::Error> {
         #[derive(Deserialize, Debug, Serialize)]
         struct PriceData {
             lines: Vec<DivinationCardPrice>,
@@ -53,7 +68,7 @@ impl DivinationCardPrice {
 
         let client = reqwest::Client::new();
         let url =
-        "https://poe.ninja/api/data/itemoverview?league=Crucible&type=DivinationCard&language=en";
+        format!("https://poe.ninja/api/data/itemoverview?league={league}&type=DivinationCard&language=en");
         let json = client.get(url).send().await?.text().await?;
 
         let price_data: PriceData = serde_json::from_str(&json).unwrap();

@@ -5,7 +5,7 @@ use std::{collections::HashMap, time::Instant};
 use csv::Reader;
 use lib::{
     Csv, CsvString, DivinationCard, DivinationCardPrice, DivinationCardRecord,
-    DivinationCardsSample, FixedCardName, Prices, CARDS, CARDS_N, LEGACY_CARDS,
+    DivinationCardsSample, FixedCardName, League, Prices, CARDS, CARDS_N, LEGACY_CARDS,
 };
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +15,7 @@ async fn main() {
     let csv2 = std::fs::read_to_string("example-2.csv").unwrap();
     let csv3 = std::fs::read_to_string("example-3.csv").unwrap();
 
-    let prices = Prices::fetch().await.unwrap();
+    let prices = Prices::fetch(League::Crucible).await.unwrap();
 
     let s1 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv1)), prices.clone());
     let s2 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv2)), prices.clone());
