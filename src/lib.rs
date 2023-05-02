@@ -81,6 +81,43 @@ impl DivinationCardsSample {
         }
     }
 
+    pub fn create(csv: Csv, prices: [DivinationCardPrice; 438]) -> DivinationCardsSample {
+        let mut sample = DivinationCardsSample::default();
+        sample.csv(csv).price(prices).weight().polished();
+
+        sample
+    }
+
+    pub fn merge(
+        prices: [DivinationCardPrice; 438],
+        samples: &[DivinationCardsSample],
+    ) -> DivinationCardsSample {
+        let mut merged = DivinationCardsSample::from_prices(prices);
+
+        for name in CARDS {
+            let sum = samples
+                .iter()
+                .map(|sample| {
+                    sample
+                        .cards
+                        .iter()
+                        .find(|card| card.name == name)
+                        .map(|card| card.amount)
+                })
+                .sum::<Option<i32>>();
+
+            merged
+                .cards
+                .iter_mut()
+                .find(|card| card.name == name)
+                .unwrap()
+                .amount = sum.unwrap_or_default();
+        }
+
+        merged.weight().polished();
+        merged
+    }
+
     pub fn size(&self) -> i32 {
         self.cards.iter().map(|r| r.amount).sum()
     }
@@ -354,6 +391,28 @@ mod tests {
     async fn prices() {
         // let prices = DivinationCardsSample::fetch_prices().await.unwrap();
         // dbg!(prices);
+    }
+
+    #[tokio::test]
+    async fn merge() {
+        let csv1 = std::fs::read_to_string("example-1.csv").unwrap();
+        let csv2 = std::fs::read_to_string("example-2.csv").unwrap();
+        let csv3 = std::fs::read_to_string("example-3.csv").unwrap();
+
+        let prices = DivinationCardPrice::fetch().await.unwrap();
+
+        let s1 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv1)), prices.clone());
+        let s2 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv2)), prices.clone());
+        let s3 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv3)), prices.clone());
+
+        let s = DivinationCardsSample::merge(prices, &[s1, s2, s3]);
+        let rain_of_chaos = s
+            .cards
+            .iter()
+            .find(|card| card.name == "Rain of Chaos")
+            .unwrap();
+
+        assert_eq!(rain_of_chaos.amount, 1779);
     }
 }
 
