@@ -102,6 +102,7 @@ pub struct DivinationCardsSample {
     pub not_cards: Vec<String>,
     pub fixed_names: Vec<FixedCardName>,
     pub polished: CsvString,
+    pub chaos: Option<f32>,
 }
 
 impl DivinationCardsSample {
@@ -110,12 +111,14 @@ impl DivinationCardsSample {
         not_cards: Vec<String>,
         fixed_names: Vec<FixedCardName>,
         polished: CsvString,
+        chaos: Option<f32>,
     ) -> DivinationCardsSample {
         DivinationCardsSample {
             cards,
             not_cards,
             fixed_names,
             polished,
+            chaos,
         }
     }
 
@@ -148,9 +151,14 @@ impl DivinationCardsSample {
             .sum::<f32>()
     }
 
+    pub fn sum(&mut self) -> &mut Self {
+        self.chaos = Some(self.chaos(None));
+        self
+    }
+
     pub fn create(csv: Csv, prices: Prices) -> DivinationCardsSample {
         let mut sample = DivinationCardsSample::default();
-        sample.csv(csv).price(prices).weight().polished();
+        sample.csv(csv).price(prices).sum().weight().polished();
 
         sample
     }
@@ -167,7 +175,7 @@ impl DivinationCardsSample {
             merged.card_mut(name).unwrap().amount(sum);
         }
 
-        merged.weight().polished();
+        merged.weight().sum().polished();
         merged
     }
 
@@ -232,6 +240,7 @@ impl DivinationCardsSample {
             not_cards: Default::default(),
             fixed_names: Default::default(),
             polished: CsvString(String::from("")),
+            chaos: None,
         }
     }
 
@@ -278,6 +287,7 @@ impl Default for DivinationCardsSample {
             fixed_names: vec![],
             not_cards: vec![],
             polished: CsvString(String::from("")),
+            chaos: None,
         }
     }
 }

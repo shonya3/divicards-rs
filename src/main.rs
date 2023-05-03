@@ -23,6 +23,7 @@ async fn main() {
 
     let mut s = DivinationCardsSample::merge(prices, &[s1, s2, s3]);
     dbg!(s.card("Rain of Chaos").unwrap().sum);
+    dbg!(s.chaos);
     // dbg!(s.chaos(None));
     // dbg!(s.chaos(Some(50.0)));
 }
