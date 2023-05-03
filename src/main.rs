@@ -21,13 +21,10 @@ async fn main() {
     let s2 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv2)), prices.clone());
     let s3 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv3)), prices.clone());
 
-    // let mut s = DivinationCardsSample::merge(prices, &[s1, s2, s3]);
+    let mut s = DivinationCardsSample::merge(prices, &[s1, s2, s3]);
+    dbg!(s.card("Rain of Chaos").unwrap().sum);
     // dbg!(s.chaos(None));
     // dbg!(s.chaos(Some(50.0)));
-
-    dbg!(s1.fixed_names);
-    dbg!(s2.fixed_names);
-    dbg!(s3.fixed_names);
 }
 
 async fn load_prices() -> Result<(), lib::error::Error> {

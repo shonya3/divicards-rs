@@ -164,7 +164,7 @@ impl DivinationCardsSample {
                 .map(|sample| sample.card(name).unwrap().amount)
                 .sum::<i32>();
 
-            merged.card_mut(name).unwrap().amount = sum;
+            merged.card_mut(name).unwrap().amount(sum);
         }
 
         merged.weight().polished();
@@ -221,8 +221,7 @@ impl DivinationCardsSample {
             .map(|DivinationCardPrice { name, price }| DivinationCardRecord {
                 name,
                 price,
-                amount: Default::default(),
-                weight: Default::default(),
+                ..Default::default()
             })
             .collect::<Vec<DivinationCardRecord>>()
             .try_into()
@@ -244,19 +243,11 @@ impl DivinationCardsSample {
                     if let Ok(mut record) = result {
                         match &record.is_card() {
                             true => {
-                                // self.cards.get_mut(&record.name).unwrap().amount = record.amount
-                                // self.cards.get_mut(index)
-                                let mut card = self
-                                    .cards
-                                    .iter_mut()
-                                    .find(|card| card.name == record.name)
-                                    .unwrap();
-                                card.amount = record.amount;
+                                self.card_mut(&record.name).unwrap().amount(record.amount);
                             }
                             false => match record.fix_name() {
                                 Some(fixed) => {
-                                    let mut card = self.card_mut(&record.name).unwrap();
-                                    card.amount = record.amount;
+                                    self.card_mut(&record.name).unwrap().amount(record.amount);
                                     self.fixed_names.push(fixed);
                                 }
                                 None => self.not_cards.push(record.name),
@@ -273,13 +264,10 @@ impl DivinationCardsSample {
 impl Default for DivinationCardsSample {
     fn default() -> Self {
         let cards: [DivinationCardRecord; 438] = CARDS
-            .clone()
             .into_iter()
             .map(|card| DivinationCardRecord {
                 name: card.to_string(),
-                price: Default::default(),
-                amount: Default::default(),
-                weight: Default::default(),
+                ..Default::default()
             })
             .collect::<Vec<DivinationCardRecord>>()
             .try_into()
@@ -301,6 +289,7 @@ pub struct DivinationCardRecord {
     pub price: Option<f32>,
     #[serde(alias = "stackSize")]
     pub amount: i32,
+    pub sum: Option<f32>,
     pub weight: Option<f32>,
 }
 
@@ -310,8 +299,19 @@ impl DivinationCardRecord {
             name: name.to_string(),
             price,
             amount: amount.unwrap_or_default(),
+            sum: Some(price.unwrap_or_default() * amount.unwrap_or_default() as f32),
             weight: None,
         }
+    }
+
+    pub fn sum(&self) -> Option<f32> {
+        Some(self.price.unwrap_or_default() * self.amount as f32)
+    }
+
+    pub fn amount(&mut self, amount: i32) -> &mut Self {
+        self.amount = amount;
+        self.sum = self.sum();
+        self
     }
 
     pub fn local_weight(&self, sample_size: i32) -> f32 {
@@ -396,9 +396,10 @@ impl Default for DivinationCardRecord {
     fn default() -> Self {
         Self {
             name: String::from("Rain Of Chaos"),
-            price: Some(1.0),
-            amount: 1,
+            price: None,
+            amount: 0,
             weight: None,
+            sum: None,
         }
     }
 }
