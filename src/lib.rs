@@ -4,6 +4,7 @@ pub mod error;
 use std::{collections::HashMap, fmt::Display, path::Path, time::Instant};
 
 use csv::{Reader, WriterBuilder};
+use error::InvalidCardNameError;
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 
@@ -118,6 +119,23 @@ impl DivinationCardsSample {
         }
     }
 
+    pub fn card_mut(
+        &mut self,
+        card: &str,
+    ) -> Result<&mut DivinationCardRecord, InvalidCardNameError> {
+        self.cards
+            .iter_mut()
+            .find(|c| c.name == card)
+            .ok_or(InvalidCardNameError(card.to_string()))
+    }
+
+    pub fn card(&self, card: &str) -> Result<&DivinationCardRecord, InvalidCardNameError> {
+        self.cards
+            .iter()
+            .find(|c| c.name == card)
+            .ok_or(InvalidCardNameError(card.to_string()))
+    }
+
     pub fn chaos(&self, min: Option<f32>) -> f32 {
         self.cards
             .iter()
@@ -143,21 +161,10 @@ impl DivinationCardsSample {
         for name in CARDS {
             let sum = samples
                 .iter()
-                .map(|sample| {
-                    sample
-                        .cards
-                        .iter()
-                        .find(|card| card.name == name)
-                        .map(|card| card.amount)
-                })
-                .sum::<Option<i32>>();
+                .map(|sample| sample.card(name).unwrap().amount)
+                .sum::<i32>();
 
-            merged
-                .cards
-                .iter_mut()
-                .find(|card| card.name == name)
-                .unwrap()
-                .amount = sum.unwrap_or_default();
+            merged.card_mut(name).unwrap().amount = sum;
         }
 
         merged.weight().polished();
@@ -169,11 +176,7 @@ impl DivinationCardsSample {
     }
 
     pub fn sample_weight(&self) -> f32 {
-        let rain_of_chaos = self
-            .cards
-            .iter()
-            .find(|r| r.name == "Rain of Chaos")
-            .expect("no rain of chaos card");
+        let rain_of_chaos = self.card("Rain of Chaos").expect("no rain of chaos card");
         RAIN_OF_CHAOS_WEIGHT / rain_of_chaos.local_weight(self.size())
     }
 
@@ -252,11 +255,7 @@ impl DivinationCardsSample {
                             }
                             false => match record.fix_name() {
                                 Some(fixed) => {
-                                    let mut card = self
-                                        .cards
-                                        .iter_mut()
-                                        .find(|card| card.name == record.name)
-                                        .unwrap();
+                                    let mut card = self.card_mut(&record.name).unwrap();
                                     card.amount = record.amount;
                                     self.fixed_names.push(fixed);
                                 }
@@ -465,7 +464,7 @@ mod tests {
 pub const CONDENSE_FACTOR: f32 = 2.0 / 3.0;
 pub const RAIN_OF_CHAOS_WEIGHT: f32 = 2452.65513;
 
-pub const LEGACY_CARDS: [&'static str; 12] = [
+pub const LEGACY_CARDS: [&'static str; LEGACY_CARDS_N] = [
     "Friendship",
     "Squandered Prosperity",
     "Blessing of God",
