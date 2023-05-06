@@ -19,11 +19,12 @@ pub enum Csv {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DivinationCardPrice {
     pub name: String,
-    #[serde(rename(deserialize = "chaosValue"))]
+    #[serde(alias = "chaosValue")]
     pub price: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Prices(#[serde(with = "BigArray")] pub [DivinationCardPrice; CARDS_N]);
 impl Prices {
     pub async fn fetch(league: League) -> Result<Prices, reqwest::Error> {
@@ -95,7 +96,8 @@ impl DivinationCardPrice {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct DivinationCardsSample {
     #[serde(with = "BigArray")]
     pub cards: [DivinationCardRecord; CARDS_N],
@@ -158,7 +160,7 @@ impl DivinationCardsSample {
 
     pub fn create(csv: Csv, prices: Prices) -> DivinationCardsSample {
         let mut sample = DivinationCardsSample::default();
-        sample.csv(csv).price(prices).sum().weight().polished();
+        sample.price(prices).csv(csv).sum().weight().polished();
 
         sample
     }
@@ -292,7 +294,7 @@ impl Default for DivinationCardsSample {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DivinationCardRecord {
     pub name: String,
     #[serde(rename(deserialize = "calculated"))]
@@ -387,7 +389,7 @@ pub enum IsACard {
     Card,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct FixedCardName {
     pub old: String,
     pub fixed: String,
@@ -443,12 +445,6 @@ mod tests {
     fn is_legacy_card() {
         let record = DivinationCardRecord::new("Friendship", None, None);
         assert_eq!(record.is_legacy_card(), true);
-    }
-
-    #[tokio::test]
-    async fn prices() {
-        // let prices = DivinationCardsSample::fetch_prices().await.unwrap();
-        // dbg!(prices);
     }
 
     #[test]
