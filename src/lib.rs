@@ -297,7 +297,7 @@ impl Default for DivinationCardsSample {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct DivinationCardRecord {
     pub name: String,
-    #[serde(rename(deserialize = "calculated"))]
+    #[serde(alias = "calculated")]
     pub price: Option<f32>,
     #[serde(alias = "stackSize")]
     pub amount: i32,
