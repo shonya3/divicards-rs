@@ -27,7 +27,7 @@ pub struct DivinationCardPrice {
 #[serde(transparent)]
 pub struct Prices(#[serde(with = "BigArray")] pub [DivinationCardPrice; CARDS_N]);
 impl Prices {
-    pub async fn fetch(league: League) -> Result<Prices, reqwest::Error> {
+    pub async fn fetch(league: &League) -> Result<Prices, reqwest::Error> {
         Ok(Prices(DivinationCardPrice::fetch(league).await?))
     }
 }
@@ -46,7 +46,7 @@ impl Default for Prices {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum League {
     Crucible,
     Standard,
@@ -62,7 +62,7 @@ impl Display for League {
 }
 
 impl DivinationCardPrice {
-    pub async fn fetch(league: League) -> Result<[Self; CARDS_N], reqwest::Error> {
+    pub async fn fetch(league: &League) -> Result<[Self; CARDS_N], reqwest::Error> {
         #[derive(Deserialize, Debug, Serialize)]
         struct PriceData {
             lines: Vec<DivinationCardPrice>,
@@ -199,6 +199,10 @@ impl DivinationCardsSample {
         }
 
         self
+    }
+
+    pub fn update_prices(self, prices: Prices) -> Self {
+        DivinationCardsSample::create(Csv::CsvString(self.polished), prices)
     }
 
     pub fn price(&mut self, prices: Prices) -> &mut Self {
@@ -433,6 +437,8 @@ pub trait DivinationCard {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::Value;
+
     use super::*;
 
     #[test]
