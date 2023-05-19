@@ -50,6 +50,8 @@ impl Default for Prices {
 pub enum League {
     Crucible,
     Standard,
+    #[serde(alias = "Crucible-HC")]
+    HardcoreCrucible,
 }
 
 impl Display for League {
@@ -57,6 +59,7 @@ impl Display for League {
         match self {
             League::Crucible => write!(f, "Crucible"),
             League::Standard => write!(f, "Standard"),
+            League::HardcoreCrucible => write!(f, "Hardcore%20Crucible"),
         }
     }
 }
