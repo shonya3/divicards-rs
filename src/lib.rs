@@ -9,11 +9,20 @@ use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardNameAmount {
+    pub name: String,
+    pub amount: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CsvString(pub String);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Csv {
     // CsvFilePath(String),
     CsvString(CsvString),
+    CardNameAmountList(Vec<CardNameAmount>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -281,11 +290,14 @@ impl DivinationCardsSample {
                     if let Ok(mut record) = result {
                         match &record.is_card() {
                             true => {
-                                self.card_mut(&record.name).unwrap().amount(record.amount);
+                                let mut_card = self.card_mut(&record.name).unwrap();
+                                mut_card.amount(mut_card.amount + record.amount);
                             }
                             false => match record.fix_name() {
                                 Some(fixed) => {
-                                    self.card_mut(&record.name).unwrap().amount(record.amount);
+                                    // self.card_mut(&record.name).unwrap().amount(record.amount);
+                                    let mut_card = self.card_mut(&record.name).unwrap();
+                                    mut_card.amount(mut_card.amount + record.amount);
                                     self.fixed_names.push(fixed);
                                 }
                                 None => self.not_cards.push(record.name),
@@ -293,6 +305,54 @@ impl DivinationCardsSample {
                         }
                     }
                 }
+                Ok(self)
+            }
+            Csv::CardNameAmountList(vec) => {
+                let sum: i32 = vec.iter().map(|card| card.amount).sum();
+                println!("card total amount: {}", sum);
+
+                let names: Vec<String> = vec.clone().into_iter().map(|card| card.name).collect();
+
+                for CardNameAmount { name, amount } in vec.clone() {
+                    let mut record = DivinationCardRecord {
+                        name,
+                        price: None,
+                        amount,
+                        sum: None,
+                        weight: None,
+                    };
+
+                    match &record.is_card() {
+                        true => {
+                            // self.card_mut(&record.name).unwrap().amount(record.amount);
+                            let mut_card = self.card_mut(&record.name).unwrap();
+                            mut_card.amount(mut_card.amount + record.amount);
+                        }
+
+                        false => match record.fix_name() {
+                            Some(fixed) => {
+                                // self.card_mut(&record.name).unwrap().amount(record.amount);
+                                let mut_card = self.card_mut(&record.name).unwrap();
+                                mut_card.amount(mut_card.amount + record.amount);
+                                self.fixed_names.push(fixed);
+                            }
+                            None => self.not_cards.push(record.name),
+                        },
+                    }
+                }
+
+                // for name in names {
+                //     let name_amount = vec.iter().find(|card| card.name == name).unwrap().amount;
+                //     let ready_card = self.card(&name).unwrap().amount;
+                //     if name_amount != ready_card {
+                //         println!("{name}: initial {}  ready{}", name_amount, ready_card);
+                //     }
+                // }
+
+                // let sum_after_creation: i32 = self.cards.iter().map(|card| card.amount).sum();
+                // dbg!(&self.not_cards);
+                // dbg!(&self.fixed_names);
+                // dbg!(sum_after_creation);
                 Ok(self)
             }
         }
@@ -453,6 +513,16 @@ impl DivinationCard for DivinationCardRecord {
     }
 }
 
+impl DivinationCard for &str {
+    fn is_card(&self) -> bool {
+        CARDS.contains(self)
+    }
+
+    fn is_legacy_card(&self) -> bool {
+        CARDS.contains(self)
+    }
+}
+
 pub trait DivinationCard {
     fn is_card(&self) -> bool;
     fn is_legacy_card(&self) -> bool;
@@ -460,6 +530,24 @@ pub trait DivinationCard {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn name_amount() {
+        let json = std::fs::read_to_string("cardNameAmountList.json").unwrap();
+        let vec: Vec<CardNameAmount> = serde_json::from_str(&json).unwrap();
+        let cards_total_amount: i32 = vec.iter().map(|card| card.amount).sum();
+        assert_eq!(cards_total_amount, 181);
+        let sample = DivinationCardsSample::create(
+            Csv::CardNameAmountList(vec),
+            Prices::fetch(&League::HardcoreCrucible).await.unwrap(),
+        )
+        .unwrap();
+
+        let sample_total_amount: i32 = sample.cards.iter().map(|card| card.amount).sum();
+        dbg!(sample_total_amount);
+    }
+
     #[test]
     fn trim() {
         let s = "something,something\r\nname,stackSize\r\nA Dab of Ink,2\r\nA Familiar Call,1\r\nA Fate Worse than Death,2\r\nA Mother's Parting Gift,15\r\nA Sea of Blue,22\r\nA Stone Perfected,2\r\nAbandoned Wealth,4\r\nAccumitisation,14\r\nAlluring Bounty,3\r\nAlone in the Darkness,30\r\nAnarchy's Price,5\r\nArrogance of the Vaal,5\r\nAssassin's Favour,44\r\nAstral Projection,7\r\nAtziri's Arsenal,6\r\nAudacity,3\r\nAzure Rage,14\r\nAzyran's Reward,4\r\nBaited Expectations,4\r\nBijoux,2\r\nBlind Venture,11\r\nBoon of Justice,20\r\nBoon of the First Ones,3\r\nBoundless Realms,23\r\nBroken Truce,15\r\nBrotherhood in Exile,1\r\n\"Brush, Paint and Palette\",6\r\nBuried Treasure,7\r\nCall to the First Ones,13\r\nCameria's Cut,3\r\nCartographer's Delight,20\r\nChaotic Disposition,13\r\nChasing Risk,6\r\nCheckmate,5\r\nCostly Curio,3\r\nCouncil of Cats,5\r\nCoveted Possession,7\r\nCursed Words,12\r\nDark Dreams,3\r\nDark Temptation,23\r\nDeadly Joy,1\r\nDeath,5\r\nDeathly Designs,4\r\nDementophobia,1\r\nDemigod's Wager,5\r\nDesperate Crusade,2\r\nDestined to Crumble,80\r\nDialla's Subjugation,12\r\nDisdain,1\r\nDivine Justice,3\r\nDoedre's Madness,44\r\nDoryani's Epiphany,1\r\nDying Anguish,16\r\nDying Light,1\r\nEarth Drinker,8\r\nEchoes of Love,2\r\nEmperor of Purity,14\r\nEmperor's Luck,79\r\nEndless Night,3\r\nForbidden Power,16\r\nFrom Bone to Ash,1\r\nFurther Invention,1\r\nGemcutter's Mercy,2\r\nGemcutter's Promise,21\r\nGift of Asenath,3\r\nGift of the Gemling Queen,10\r\nGlimmer of Hope,34\r\nGrave Knowledge,13\r\nGuardian's Challenge,13\r\nHarmony of Souls ,1\r\nHer Mask,40\r\nHeterochromia,8\r\nHome,1\r\nHope,8\r\nHubris,24\r\nHumility,27\r\nHunter's Resolve,25\r\nHunter's Reward,4\r\nImmortal Resolve,5\r\nImperfect Memories,1\r\nImperial Legacy,36\r\nJack in the Box,11\r\nJudging Voices,2\r\nJustified Ambition,6\r\nLachrymal Necrosis,2\r\nLantador's Lost Love,50\r\nLast Hope,29\r\nLeft to Fate,9\r\nLight and Truth,4\r\nLingering Remnants,12\r\nLost Worlds,30\r\nLove Through Ice,1\r\nLoyalty,96\r\nLucky Connections,25\r\nLucky Deck,2\r\nLuminous Trove,1\r\nLysah's Respite,18\r\nMawr Blaidd,2\r\nMerciless Armament,2\r\nMight is Right,16\r\nMisery in Darkness,3\r\nMitts,27\r\nMonochrome,4\r\nMore is Never Enough,4\r\nNo Traces,15\r\nParasitic Passengers,4\r\nPeaceful Moments,4\r\nPrejudice,20\r\nPride before the Fall,2\r\nPride of the First Ones,1\r\nPrometheus' Armoury,2\r\nProsperity,31\r\nRain of Chaos,188\r\nRain Tempter,34\r\nRats,48\r\nRebirth,2\r\nRebirth and Renewal,3\r\nReckless Ambition,4\r\nRemembrance,1\r\nSambodhi's Vow,31\r\nSambodhi's Wisdom,11\r\nScholar of the Seas,9\r\nSeven Years Bad Luck,1\r\nShard of Fate,27\r\nSilence and Frost,4\r\nSociety's Remorse,11\r\nSomething Dark,4\r\nStruck by 
