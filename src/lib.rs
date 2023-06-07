@@ -1,7 +1,8 @@
 #![allow(unused)]
 pub mod error;
 
-use std::{collections::HashMap, fmt::Display, path::Path, str::Lines, time::Instant};
+use std::{collections::HashMap, fmt::Display, ops::Deref, path::Path, str::Lines, time::Instant};
+use urlencoding::encode as urlencode;
 
 use csv::{Reader, WriterBuilder};
 use error::{InvalidCardNameError, MissingHeaders};
@@ -36,7 +37,7 @@ pub struct DivinationCardPrice {
 #[serde(transparent)]
 pub struct Prices(#[serde(with = "BigArray")] pub [DivinationCardPrice; CARDS_N]);
 impl Prices {
-    pub async fn fetch(league: &League) -> Result<Prices, reqwest::Error> {
+    pub async fn fetch(league: &TradeLeague) -> Result<Prices, reqwest::Error> {
         Ok(Prices(DivinationCardPrice::fetch(league).await?))
     }
 }
@@ -61,6 +62,15 @@ pub enum League {
     Standard,
     #[serde(alias = "Crucible-HC")]
     HardcoreCrucible,
+    Hardcore,
+    #[serde(alias = "SSF Standard")]
+    SSFStandard,
+    #[serde(alias = "SSF Hardcore")]
+    SSFHardcore,
+    #[serde(alias = "SSF Crucible")]
+    SSFCrucible,
+    #[serde(alias = "HC SSF Crucible")]
+    SSFHCCrucible,
 }
 
 impl Display for League {
@@ -68,21 +78,60 @@ impl Display for League {
         match self {
             League::Crucible => write!(f, "Crucible"),
             League::Standard => write!(f, "Standard"),
-            League::HardcoreCrucible => write!(f, "Hardcore%20Crucible"),
+            League::HardcoreCrucible => write!(f, "Hardcore Crucible"),
+            League::Hardcore => write!(f, "Hardcore"),
+            League::SSFStandard => write!(f, "Solo Self-Found"),
+            League::SSFHardcore => write!(f, "SSF Hardcore"),
+            League::SSFCrucible => write!(f, "SSF Crucible"),
+            League::SSFHCCrucible => write!(f, "HC SSF Crucible"),
+        }
+    }
+}
+
+impl League {
+    pub fn urlencoded(self: &Self) -> String {
+        let s = format!("{self}");
+        urlencode(&s).into()
+    }
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub enum TradeLeague {
+    Crucible,
+    Standard,
+    #[serde(alias = "Crucible-HC")]
+    HardcoreCrucible,
+    Hardcore,
+}
+
+impl TradeLeague {
+    pub fn urlencoded(self: &Self) -> String {
+        let s = format!("{self}");
+        urlencode(&s).into()
+    }
+}
+
+impl Display for TradeLeague {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TradeLeague::Crucible => write!(f, "Crucible"),
+            TradeLeague::Standard => write!(f, "Standard"),
+            TradeLeague::HardcoreCrucible => write!(f, "Hardcore Crucible"),
+            TradeLeague::Hardcore => write!(f, "Hardcore"),
         }
     }
 }
 
 impl DivinationCardPrice {
-    pub async fn fetch(league: &League) -> Result<[Self; CARDS_N], reqwest::Error> {
+    pub async fn fetch(league: &TradeLeague) -> Result<[Self; CARDS_N], reqwest::Error> {
         #[derive(Deserialize, Debug, Serialize)]
         struct PriceData {
             lines: Vec<DivinationCardPrice>,
         }
 
         let client = reqwest::Client::new();
-        let url =
-        format!("https://poe.ninja/api/data/itemoverview?league={league}&type=DivinationCard&language=en");
+        let url = format!(
+            "https://poe.ninja/api/data/itemoverview?league={league}&type=DivinationCard&language=en",
+        );
         let json = client.get(url).send().await?.text().await?;
 
         let price_data: PriceData = serde_json::from_str(&json).unwrap();
@@ -540,7 +589,7 @@ mod tests {
         assert_eq!(cards_total_amount, 181);
         let sample = DivinationCardsSample::create(
             Csv::CardNameAmountList(vec),
-            Prices::fetch(&League::HardcoreCrucible).await.unwrap(),
+            Prices::fetch(&TradeLeague::HardcoreCrucible).await.unwrap(),
         )
         .unwrap();
 
