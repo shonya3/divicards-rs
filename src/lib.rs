@@ -81,7 +81,7 @@ impl Display for League {
             League::HardcoreCrucible => write!(f, "Hardcore Crucible"),
             League::Hardcore => write!(f, "Hardcore"),
             League::SSFStandard => write!(f, "Solo Self-Found"),
-            League::SSFHardcore => write!(f, "SSF Hardcore"),
+            League::SSFHardcore => write!(f, "Hardcore SSF"),
             League::SSFCrucible => write!(f, "SSF Crucible"),
             League::SSFHCCrucible => write!(f, "HC SSF Crucible"),
         }
