@@ -88,12 +88,6 @@ impl Display for League {
     }
 }
 
-impl League {
-    pub fn urlencoded(self: &Self) -> String {
-        let s = format!("{self}");
-        urlencode(&s).into()
-    }
-}
 #[derive(Debug, Serialize, Deserialize)]
 pub enum TradeLeague {
     Crucible,
@@ -101,13 +95,6 @@ pub enum TradeLeague {
     #[serde(alias = "Crucible-HC")]
     HardcoreCrucible,
     Hardcore,
-}
-
-impl TradeLeague {
-    pub fn urlencoded(self: &Self) -> String {
-        let s = format!("{self}");
-        urlencode(&s).into()
-    }
 }
 
 impl Display for TradeLeague {
