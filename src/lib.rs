@@ -20,8 +20,7 @@ pub struct CardNameAmount {
 pub struct CsvString(pub String);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Csv {
-    // CsvFilePath(String),
+pub enum SampleData {
     CsvString(CsvString),
     CardNameAmountList(Vec<CardNameAmount>),
 }
@@ -206,9 +205,12 @@ impl DivinationCardsSample {
         self
     }
 
-    pub fn create(csv: Csv, prices: Prices) -> Result<DivinationCardsSample, MissingHeaders> {
+    pub fn create(
+        source: SampleData,
+        prices: Prices,
+    ) -> Result<DivinationCardsSample, MissingHeaders> {
         let mut sample = DivinationCardsSample::default();
-        let mut sample = sample.price(prices).csv(csv)?;
+        let mut sample = sample.price(prices).csv(source)?;
         let sample = sample.sum().weight().polished().to_owned();
 
         Ok(sample)
@@ -251,7 +253,7 @@ impl DivinationCardsSample {
     }
 
     pub fn update_prices(self, prices: Prices) -> Result<DivinationCardsSample, MissingHeaders> {
-        DivinationCardsSample::create(Csv::CsvString(self.polished), prices)
+        DivinationCardsSample::create(SampleData::CsvString(self.polished), prices)
     }
 
     pub fn price(&mut self, prices: Prices) -> &mut Self {
@@ -316,9 +318,9 @@ impl DivinationCardsSample {
         }
     }
 
-    pub fn csv(&mut self, csv: Csv) -> Result<&mut Self, MissingHeaders> {
-        match csv {
-            Csv::CsvString(s) => {
+    pub fn csv(&mut self, source: SampleData) -> Result<&mut Self, MissingHeaders> {
+        match source {
+            SampleData::CsvString(s) => {
                 let trimmed = Self::trim_before_headers(&s.0)?;
                 let mut rdr = Reader::from_reader(trimmed.as_bytes());
 
@@ -343,7 +345,7 @@ impl DivinationCardsSample {
                 }
                 Ok(self)
             }
-            Csv::CardNameAmountList(vec) => {
+            SampleData::CardNameAmountList(vec) => {
                 let sum: i32 = vec.iter().map(|card| card.amount).sum();
                 println!("card total amount: {}", sum);
 
@@ -377,18 +379,6 @@ impl DivinationCardsSample {
                     }
                 }
 
-                // for name in names {
-                //     let name_amount = vec.iter().find(|card| card.name == name).unwrap().amount;
-                //     let ready_card = self.card(&name).unwrap().amount;
-                //     if name_amount != ready_card {
-                //         println!("{name}: initial {}  ready{}", name_amount, ready_card);
-                //     }
-                // }
-
-                // let sum_after_creation: i32 = self.cards.iter().map(|card| card.amount).sum();
-                // dbg!(&self.not_cards);
-                // dbg!(&self.fixed_names);
-                // dbg!(sum_after_creation);
                 Ok(self)
             }
         }
@@ -575,7 +565,7 @@ mod tests {
         let cards_total_amount: i32 = vec.iter().map(|card| card.amount).sum();
         assert_eq!(cards_total_amount, 181);
         let sample = DivinationCardsSample::create(
-            Csv::CardNameAmountList(vec),
+            SampleData::CardNameAmountList(vec),
             Prices::fetch(&TradeLeague::HardcoreCrucible).await.unwrap(),
         )
         .unwrap();
@@ -616,12 +606,21 @@ Encroaching Darkness,5\r\nThe Endless Darkness,1\r\nThe Endurance,19\r\nThe Enfo
         let csv2 = std::fs::read_to_string("example-2.csv").unwrap();
         let csv3 = std::fs::read_to_string("example-3.csv").unwrap();
 
-        let s1 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv1)), Prices::default())
-            .unwrap();
-        let s2 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv2)), Prices::default())
-            .unwrap();
-        let s3 = DivinationCardsSample::create(Csv::CsvString(CsvString(csv3)), Prices::default())
-            .unwrap();
+        let s1 = DivinationCardsSample::create(
+            SampleData::CsvString(CsvString(csv1)),
+            Prices::default(),
+        )
+        .unwrap();
+        let s2 = DivinationCardsSample::create(
+            SampleData::CsvString(CsvString(csv2)),
+            Prices::default(),
+        )
+        .unwrap();
+        let s3 = DivinationCardsSample::create(
+            SampleData::CsvString(CsvString(csv3)),
+            Prices::default(),
+        )
+        .unwrap();
 
         let s = DivinationCardsSample::merge(Prices::default(), &[s1, s2, s3]);
         let rain_of_chaos = s
