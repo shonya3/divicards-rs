@@ -495,7 +495,7 @@ impl DivinationCard for &str {
     }
 
     fn is_legacy_card(&self) -> bool {
-        CARDS.contains(self)
+        LEGACY_CARDS.contains(self)
     }
 }
 
