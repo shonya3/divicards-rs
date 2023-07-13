@@ -2,7 +2,7 @@
 pub mod error;
 pub mod league;
 
-use league::TradeLeague;
+pub use league::TradeLeague;
 use std::{collections::HashMap, fmt::Display, ops::Deref, path::Path, str::Lines, time::Instant};
 use urlencoding::encode as urlencode;
 
